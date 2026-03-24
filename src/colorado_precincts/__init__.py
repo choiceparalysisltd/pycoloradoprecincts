@@ -1,18 +1,23 @@
 from dataclasses import dataclass
 from enum import Enum
-from functools import cached_property, cache
+from functools import cache, cached_property
 
 
 @dataclass
 class County:
+    """A dataclass representing a county's name and ID number"""
+
     id: int
     name: str
 
 
 class Counties(Enum):
+    """A mapping of all the counties in Colorado"""
+
     @classmethod
     @cache
     def get_by_id(cls, county_id: int) -> County:
+        """Retrieve a county by its ID number"""
         for county in cls:
             if county_id == county.value.id:
                 return county.value
@@ -86,39 +91,62 @@ class Counties(Enum):
 
 @dataclass
 class PrecinctId:
+    """A dataclass which "explodes" a 10-digit precinct number into its component fields"""
+
     raw_id: int
 
     @cached_property
     def precinct(self) -> int:
+        """The short precinct number"""
         return self.raw_id % 1000
 
     @cached_property
     def county(self) -> County:
+        """The county containing this precinct"""
         county_id = (self.raw_id // 1_000) % 100
         return Counties.get_by_id(county_id)
 
     @cached_property
     def congressional_district(self) -> int:
+        """The district number for the federal House of Representatives"""
         return self.raw_id // 1_000_000_000
 
     @cached_property
     def state_senate_district(self) -> int:
+        """The district number for the state Senate"""
         return (self.raw_id // 10_000_000) % 100
 
     @cached_property
     def state_house_district(self) -> int:
+        """The district number for the state House of Representatives"""
         return (self.raw_id // 100_000) % 100
 
     @cached_property
     def ward(self) -> int:
+        """The ward number, if applicable.
+
+        Only Broomfield county has wards. For all other counties, this will raise a `ValueError`."""
         if self.county is not Counties.BROOMFIELD.value:
             raise ValueError("Only Broomfield County has wards")
         return self.precinct // 100
 
     @cached_property
     def county_commissioner_district(self) -> int:
-        if self.precinct < 100 or self.county in [Counties.BROOMFIELD.value, Counties.DENVER.value]:
-            raise ValueError("This precinct is not associated with a county commissioner district")
+        """The county commissioner district, if applicable and supported.
+
+        Most counties do not have commissioner districts, and this will raise a `ValueError` if not applicable.
+
+        El Paso County does have commissioner districts, but the logic for them is complex and not yet supported by this package.
+        This function will raise a `NotImplementedError` for precincts in El Paso County."""
+        if self.precinct < 100 or self.county in [
+            Counties.BROOMFIELD.value,
+            Counties.DENVER.value,
+        ]:
+            raise ValueError(
+                "This precinct is not associated with a county commissioner district"
+            )
         if self.county is Counties.EL_PASO.value:
-            raise NotImplementedError("County commissioner districts are not yet supported for El Paso County")
+            raise NotImplementedError(
+                "County commissioner districts are not yet supported for El Paso County"
+            )
         return self.precinct % 100
