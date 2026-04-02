@@ -1,5 +1,5 @@
 [project]
-name = "pycoloradoprecincts"
+name = "coloradoprecincts"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.9"
